@@ -1,8 +1,9 @@
+import traceback
 from pathlib import Path
 
 from PyQt6.QtCore import QObject, QThread, pyqtSignal
 
-from . import db, paste
+from . import db, paste, typing_speed
 from .config import UserConfig
 from .hotkey import HotkeyListener
 from .recorder import Recorder
@@ -37,7 +38,9 @@ class TranscribeWorker(QThread):
                 refined = refiner.refine(raw)
                 refine_name = refiner.name
 
-            saved = db.estimate_saved_seconds(refined, self.duration, self.cfg.typing_wpm)
+            saved = typing_speed.saved_seconds(
+                refined, self.duration, self.cfg.typing_speed
+            )
             rec = db.Recording(
                 audio_path=str(self.audio_path),
                 duration_seconds=self.duration,
@@ -45,12 +48,14 @@ class TranscribeWorker(QThread):
                 refined_text=refined,
                 stt_model=self.cfg.stt_model,
                 refine_model=refine_name,
-                typing_wpm=self.cfg.typing_wpm,
                 saved_seconds=saved,
             )
             db.insert(rec)
             self.finished_ok.emit(rec)
         except Exception as e:
+            # Print full traceback to stderr so failures are visible in the
+            # terminal even when the tray notification is dismissed/suppressed.
+            traceback.print_exc()
             self.failed.emit(f"{type(e).__name__}: {e}")
 
 
@@ -82,9 +87,12 @@ class App(QObject):
                 pass
 
     def apply_config(self, cfg: UserConfig) -> None:
+        speed_changed = cfg.typing_speed != self.cfg.typing_speed
         self.cfg = cfg
         cfg.save()
         self.hotkey.update(cfg.hotkey)
+        if speed_changed:
+            db.recompute_saved_seconds(cfg.typing_speed)
 
     def _on_toggle_threadsafe(self, active: bool) -> None:
         self._toggle_bridge.toggled.emit(active)

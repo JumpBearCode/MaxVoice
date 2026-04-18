@@ -4,6 +4,8 @@ from PyQt6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QFormLayout,
+    QGroupBox,
+    QLabel,
     QLineEdit,
     QSpinBox,
     QVBoxLayout,
@@ -12,7 +14,17 @@ from PyQt6.QtWidgets import (
 from ..config import UserConfig
 from ..refine import AVAILABLE_REFINE
 from ..stt import AVAILABLE_STT
+from ..typing_speed import TypingSpeed
 from .hotkey_edit import HotkeyEdit
+
+# (label shown in UI, attribute on TypingSpeed, unit suffix shown next to spinbox)
+_LANG_FIELDS = [
+    ("English",  "english", "WPM"),
+    ("Chinese",  "chinese", "字/min"),
+    ("Hindi",    "hindi",   "WPM"),
+    ("Telugu",   "telugu",  "WPM"),
+    ("Tamil",    "tamil",   "WPM"),
+]
 
 
 class SettingsDialog(QDialog):
@@ -48,16 +60,28 @@ class SettingsDialog(QDialog):
         self.language_hint.setPlaceholderText("blank = auto. e.g. zh, en, hi")
         form.addRow("Language hint", self.language_hint)
 
-        self.wpm = QSpinBox()
-        self.wpm.setRange(10, 200)
-        self.wpm.setValue(cfg.typing_wpm)
-        form.addRow("Your typing speed (WPM)", self.wpm)
-
         self.auto_paste = QCheckBox("Auto-paste to cursor (fallback: clipboard)")
         self.auto_paste.setChecked(cfg.auto_paste)
         form.addRow("Output", self.auto_paste)
 
         layout.addLayout(form)
+
+        speed_box = QGroupBox("Typing speed (used to estimate time saved)")
+        speed_form = QFormLayout(speed_box)
+        defaults = TypingSpeed()
+        self.speed_spins: dict[str, QSpinBox] = {}
+        for label, attr, unit in _LANG_FIELDS:
+            spin = QSpinBox()
+            spin.setRange(5, 300)
+            spin.setValue(getattr(cfg.typing_speed, attr))
+            spin.setSuffix(f"  {unit}")
+            self.speed_spins[attr] = spin
+            row_label = f"{label}  (default {getattr(defaults, attr)} {unit})"
+            speed_form.addRow(row_label, spin)
+        layout.addWidget(speed_box)
+        layout.addWidget(QLabel(
+            "Other scripts (Latin, Cyrillic, etc.) fall back to English speed."
+        ))
 
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
@@ -79,7 +103,9 @@ class SettingsDialog(QDialog):
         self._cfg.refine_model = self.refine_combo.currentData()
         self._cfg.refine_enabled = self.refine_enabled.isChecked()
         self._cfg.language_hint = self.language_hint.text().strip()
-        self._cfg.typing_wpm = self.wpm.value()
+        self._cfg.typing_speed = TypingSpeed(
+            **{attr: spin.value() for attr, spin in self.speed_spins.items()}
+        )
         self._cfg.auto_paste = self.auto_paste.isChecked()
         self.accept()
 

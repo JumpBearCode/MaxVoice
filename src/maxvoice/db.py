@@ -1,20 +1,23 @@
-from datetime import datetime, timezone
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from sqlmodel import Field, Session, SQLModel, create_engine, select
 
 from .paths import db_path
+from .typing_speed import TypingSpeed, saved_seconds as _calc_saved
+
+EASTERN = ZoneInfo("America/New_York")
 
 
 class Recording(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(EASTERN))
     audio_path: str
     duration_seconds: float
     raw_text: str = ""
     refined_text: str = ""
     stt_model: str = ""
     refine_model: str = ""
-    typing_wpm: int = 40
     saved_seconds: float = 0.0
 
 
@@ -44,10 +47,12 @@ def all_recordings(limit: int = 200) -> list[Recording]:
         )
 
 
-def estimate_saved_seconds(text: str, duration_s: float, wpm: int) -> float:
-    # Rough char→word conversion: CJK 1 char ≈ 1 word; latin words split by whitespace.
-    cjk = sum(1 for ch in text if "\u4e00" <= ch <= "\u9fff")
-    latin_words = len([w for w in text.split() if any(c.isalpha() for c in w)])
-    words = max(cjk + latin_words, 1)
-    typing_s = words / max(wpm, 1) * 60.0
-    return max(typing_s - duration_s, 0.0)
+def recompute_saved_seconds(speed: TypingSpeed) -> int:
+    with Session(engine()) as s:
+        recs = list(s.exec(select(Recording)))
+        for r in recs:
+            text = r.refined_text or r.raw_text
+            r.saved_seconds = _calc_saved(text, r.duration_seconds, speed)
+            s.add(r)
+        s.commit()
+    return len(recs)

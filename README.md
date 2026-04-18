@@ -3,7 +3,7 @@
 Typeless-like voice dictation, powered by **Azure AI Foundry**. Press a hotkey,
 speak, press again to stop — the transcription lands at your cursor.
 
-- **Pluggable STT** (layer 1): `gpt-4o-mini-transcribe` (default), `gpt-4o-transcribe`, `whisper`
+- **Pluggable STT** (layer 1): `gpt-4o-mini-transcribe` (default), `gpt-4o-transcribe`
 - **Pluggable refinement** (layer 2): `gpt-5.4-nano` (default), `gpt-5.4-mini`, `claude-haiku-4-5`
 - **Toggle hotkey** (default `Right-Option + Q`, configurable in Settings)
 - **No length cap** — streams audio until you press the hotkey again
@@ -62,7 +62,7 @@ src/maxvoice/
 ├── db.py                # SQLite + productivity estimate
 ├── stt/                 # pluggable STT providers
 │   ├── base.py
-│   ├── azure_openai.py  # Whisper, gpt-4o-transcribe, gpt-4o-mini-transcribe
+│   ├── azure_openai.py  # gpt-4o-transcribe, gpt-4o-mini-transcribe
 │   └── registry.py
 ├── refine/              # pluggable refinement providers
 │   ├── base.py

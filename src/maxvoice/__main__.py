@@ -1,4 +1,5 @@
 import sys
+import traceback
 
 from PyQt6.QtCore import QCoreApplication, Qt
 from PyQt6.QtWidgets import QApplication, QMessageBox, QSystemTrayIcon
@@ -9,7 +10,21 @@ from .gui.settings import SettingsDialog
 from .gui.tray import Tray
 
 
+def _install_excepthook() -> None:
+    # PyQt6 + Python 3.8+ aborts the process on any unhandled exception raised
+    # inside a Qt slot. Replace excepthook so the tray app survives slot errors
+    # (we still log them so they're not invisible).
+    def hook(exc_type, exc, tb):
+        traceback.print_exception(exc_type, exc, tb)
+        try:
+            QMessageBox.critical(None, "MaxVoice", f"{exc_type.__name__}: {exc}")
+        except Exception:
+            pass
+    sys.excepthook = hook
+
+
 def main() -> int:
+    _install_excepthook()
     # On macOS, Qt swaps Ctrl/Meta by default. Disable it so keyPressEvent reports
     # physical modifiers faithfully (so we record the keys the user actually pressed).
     QCoreApplication.setAttribute(Qt.ApplicationAttribute.AA_MacDontSwapCtrlAndMeta)
@@ -51,9 +66,15 @@ def main() -> int:
     history_win: dict = {"w": None}
 
     def open_settings() -> None:
-        dlg = SettingsDialog(app.cfg)
-        if dlg.exec() == SettingsDialog.DialogCode.Accepted:
-            app.apply_config(dlg.result_config())
+        try:
+            dlg = SettingsDialog(app.cfg)
+            if dlg.exec() == SettingsDialog.DialogCode.Accepted:
+                app.apply_config(dlg.result_config())
+                if history_win["w"] is not None and history_win["w"].isVisible():
+                    history_win["w"].reload()
+        except Exception as e:
+            traceback.print_exc()
+            QMessageBox.critical(None, "MaxVoice Settings", f"{type(e).__name__}: {e}")
 
     def open_history() -> None:
         if history_win["w"] is None:

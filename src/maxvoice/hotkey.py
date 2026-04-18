@@ -34,5 +34,10 @@ class HotkeyListener:
             self._listener = None
 
     def update(self, hotkey: str) -> None:
+        # Restarting the pynput listener tears down + reinstalls a CGEventTap on
+        # macOS, which races with Qt's event loop and crashes the process. Skip
+        # the restart when the combo hasn't actually changed.
+        if hotkey == self._hotkey_str and self._listener is not None:
+            return
         self._hotkey_str = hotkey
         self.start()

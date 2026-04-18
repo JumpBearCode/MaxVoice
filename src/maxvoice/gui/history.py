@@ -8,11 +8,11 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
 )
 
-from .. import db
+from .. import db, pricing
 
 
 class HistoryDialog(QDialog):
-    COLS = ["Time", "Duration", "STT", "Refine", "Saved (s)", "Text"]
+    COLS = ["Time", "Duration", "STT", "Refine", "Saved (s)", "Cost", "Text"]
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -37,18 +37,29 @@ class HistoryDialog(QDialog):
     def reload(self) -> None:
         rows = db.all_recordings(limit=500)
         total_saved = sum(r.saved_seconds for r in rows)
+        total_cost = sum(
+            pricing.total_cost(
+                r.stt_model, r.refine_model, r.duration_seconds, r.raw_text, r.refined_text
+            )
+            for r in rows
+        )
         self.setWindowTitle(
-            f"MaxVoice History — {len(rows)} records, saved ≈ {total_saved:.1f}s"
+            f"MaxVoice History — {len(rows)} records, "
+            f"saved ≈ {total_saved:.1f}s, cost ≈ ${total_cost:.4f}"
         )
         self.table.setRowCount(len(rows))
         for i, r in enumerate(rows):
             text = r.refined_text or r.raw_text
+            cost = pricing.total_cost(
+                r.stt_model, r.refine_model, r.duration_seconds, r.raw_text, r.refined_text
+            )
             cells = [
                 r.created_at.strftime("%Y-%m-%d %H:%M:%S"),
                 f"{r.duration_seconds:.1f}s",
                 r.stt_model,
                 r.refine_model or "—",
                 f"{r.saved_seconds:.1f}",
+                f"${cost:.5f}",
                 text,
             ]
             for j, c in enumerate(cells):

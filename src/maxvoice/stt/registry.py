@@ -1,10 +1,9 @@
-from .azure_openai import GPT4oMiniTranscribe, GPT4oTranscribe, Whisper
+from .azure_openai import GPT4oMiniTranscribe, GPT4oTranscribe
 from .base import STTProvider
 
 AVAILABLE_STT: list[type[STTProvider]] = [
     GPT4oMiniTranscribe,
     GPT4oTranscribe,
-    Whisper,
 ]
 
 _BY_NAME = {cls.name: cls for cls in AVAILABLE_STT}

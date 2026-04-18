@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 
 from .paths import config_path
+from .typing_speed import TypingSpeed
 
 load_dotenv()
 
@@ -25,7 +26,7 @@ class UserConfig(BaseModel):
     stt_model: str = "gpt-4o-mini-transcribe"
     refine_model: str = "gpt-5.4-nano"
     refine_enabled: bool = True
-    typing_wpm: int = 40
+    typing_speed: TypingSpeed = Field(default_factory=TypingSpeed)
     auto_paste: bool = True
     language_hint: str = ""
 
