@@ -1,0 +1,15 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+dist/
+build/
+*.egg-info/
+.uv/
+uv.lock
+
+# App data
+data/
+*.db
+*.wav
