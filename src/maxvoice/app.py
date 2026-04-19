@@ -22,12 +22,14 @@ class TranscribeWorker(QThread):
         duration: float,
         audio: np.ndarray,
         cfg: UserConfig,
+        mode: str = "refine",
     ) -> None:
         super().__init__()
         self.audio_path = audio_path
         self.duration = duration
         self.audio = audio
         self.cfg = cfg
+        self.mode = mode
 
     def run(self) -> None:
         try:
@@ -42,10 +44,18 @@ class TranscribeWorker(QThread):
 
             refined = raw
             refine_name = ""
-            if self.cfg.refine_enabled and raw.strip():
-                refiner = get_refine(self.cfg.refine_model)
-                refined = refiner.refine(raw)
-                refine_name = refiner.name
+            # Translate mode always runs the LLM (refine_enabled only gates the
+            # normal-mode cleanup pass — translation is the whole point here).
+            needs_llm = raw.strip() and (
+                self.mode == "translate" or self.cfg.refine_enabled
+            )
+            if needs_llm:
+                provider = get_refine(self.cfg.refine_model)
+                if self.mode == "translate":
+                    refined = provider.translate(raw)
+                else:
+                    refined = provider.refine(raw)
+                refine_name = provider.name
 
             saved = typing_speed.saved_seconds(
                 refined, active, self.cfg.typing_speed,
@@ -79,11 +89,18 @@ class App(QObject):
         super().__init__()
         self.cfg = UserConfig.load()
         self.recorder = Recorder()
-        self.hotkey = HotkeyListener(self.cfg.hotkey, self._on_toggle_threadsafe)
+        self.hotkey = HotkeyListener(
+            self._hotkey_map(self.cfg), self._on_toggle_threadsafe
+        )
         self._worker: TranscribeWorker | None = None
+        self._active_mode: str = "refine"  # set on each recording start
         # pynput fires from a non-Qt thread — use a queued signal to marshal onto main.
         self._toggle_bridge = _ToggleBridge()
         self._toggle_bridge.toggled.connect(self._on_toggle)
+
+    @staticmethod
+    def _hotkey_map(cfg: UserConfig) -> dict[str, str]:
+        return {cfg.hotkey: "refine", cfg.translate_hotkey: "translate"}
 
     def start(self) -> None:
         self.hotkey.start()
@@ -126,7 +143,7 @@ class App(QObject):
         )
         self.cfg = cfg
         cfg.save()
-        self.hotkey.update(cfg.hotkey)
+        self.hotkey.update(self._hotkey_map(cfg))
         if vad_params_changed:
             # VAD params changed → stale active_speech values. Rerun VAD on
             # anything we still have audio for, then recompute saved.
@@ -136,11 +153,12 @@ class App(QObject):
         if retention_changed:
             self._run_cleanup()
 
-    def _on_toggle_threadsafe(self, active: bool) -> None:
-        self._toggle_bridge.toggled.emit(active)
+    def _on_toggle_threadsafe(self, mode: str, active: bool) -> None:
+        self._toggle_bridge.toggled.emit(mode, active)
 
-    def _on_toggle(self, active: bool) -> None:
+    def _on_toggle(self, mode: str, active: bool) -> None:
         if active:
+            self._active_mode = mode
             self._start_recording()
         else:
             self._stop_recording()
@@ -163,7 +181,9 @@ class App(QObject):
             return
 
         self.state_changed.emit("transcribing")
-        self._worker = TranscribeWorker(audio_path, duration, audio, self.cfg)
+        self._worker = TranscribeWorker(
+            audio_path, duration, audio, self.cfg, self._active_mode
+        )
         self._worker.finished_ok.connect(self._on_transcription)
         self._worker.failed.connect(self._on_transcription_failed)
         self._worker.start()
@@ -181,4 +201,4 @@ class App(QObject):
 
 
 class _ToggleBridge(QObject):
-    toggled = pyqtSignal(bool)
+    toggled = pyqtSignal(str, bool)

@@ -43,6 +43,7 @@ class AzureCreds(BaseModel):
 
 class UserConfig(BaseModel):
     hotkey: str = "<alt>+q"
+    translate_hotkey: str = "<ctrl>+<alt>+w"
     stt_model: str = "gpt-4o-mini-transcribe"
     refine_model: str = "gpt-5.4-nano"
     refine_enabled: bool = True

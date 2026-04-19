@@ -1,7 +1,7 @@
 from openai import AzureOpenAI
 
 from ..config import AZURE
-from .base import SYSTEM_PROMPT, RefineProvider
+from .base import SYSTEM_PROMPT, TRANSLATE_SYSTEM_PROMPT, RefineProvider
 
 
 def _client() -> AzureOpenAI:
@@ -16,6 +16,23 @@ class _AzureChatRefine(RefineProvider):
     deployment_env: str = ""
     deployment_default: str = ""
 
+    def _complete(self, system_prompt: str, raw_text: str) -> str:
+        client = _client()
+        deployment = AZURE.deployment(self.deployment_env, self.deployment_default)
+        # GPT-5.x uses max_completion_tokens, not max_tokens. Cap at 4× input chars
+        # (rough upper bound for cleanup/translation output) with a floor of 200.
+        cap = max(200, len(raw_text) * 4)
+        resp = client.chat.completions.create(
+            model=deployment,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": raw_text},
+            ],
+            temperature=0.0,
+            max_completion_tokens=cap,
+        )
+        return (resp.choices[0].message.content or "").strip()
+
     def refine(self, raw_text: str) -> str:
         stripped = raw_text.strip()
         # Short-input guard: small models hallucinate or truncate on tiny repetitive
@@ -23,21 +40,15 @@ class _AzureChatRefine(RefineProvider):
         # is short OR has very low character variety.
         if len(stripped) < 8 and len(set(stripped)) < 4:
             return stripped
-        client = _client()
-        deployment = AZURE.deployment(self.deployment_env, self.deployment_default)
-        # GPT-5.x uses max_completion_tokens, not max_tokens. Cap at 4× input chars
-        # (rough upper bound for cleanup output) with a floor of 200.
-        cap = max(200, len(raw_text) * 4)
-        resp = client.chat.completions.create(
-            model=deployment,
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": raw_text},
-            ],
-            temperature=0.0,
-            max_completion_tokens=cap,
-        )
-        return (resp.choices[0].message.content or "").strip()
+        return self._complete(SYSTEM_PROMPT, raw_text)
+
+    def translate(self, raw_text: str) -> str:
+        stripped = raw_text.strip()
+        # Short-input guard also applies to translate — "哈喽" alone is too thin
+        # to translate meaningfully and small models tend to hallucinate on it.
+        if len(stripped) < 8 and len(set(stripped)) < 4:
+            return stripped
+        return self._complete(TRANSLATE_SYSTEM_PROMPT, raw_text)
 
 
 class GPT54Nano(_AzureChatRefine):

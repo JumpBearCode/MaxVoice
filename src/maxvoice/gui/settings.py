@@ -178,6 +178,10 @@ class SettingsDialog(QDialog):
         self.hotkey_edit.setFixedWidth(_FIELD_WIDTH * 2)
         form.addRow("Hotkey (toggle)", self.hotkey_edit)
 
+        self.translate_hotkey_edit = HotkeyEdit(cfg.translate_hotkey)
+        self.translate_hotkey_edit.setFixedWidth(_FIELD_WIDTH * 2)
+        form.addRow("Translate hotkey (→ English)", self.translate_hotkey_edit)
+
         self.stt_combo = QComboBox()
         for cls in AVAILABLE_STT:
             self.stt_combo.addItem(cls.label, cls.name)
@@ -323,6 +327,9 @@ class SettingsDialog(QDialog):
 
     def _save(self) -> None:
         self._cfg.hotkey = self.hotkey_edit.text() or self._cfg.hotkey
+        self._cfg.translate_hotkey = (
+            self.translate_hotkey_edit.text() or self._cfg.translate_hotkey
+        )
         self._cfg.stt_model = self.stt_combo.currentData()
         self._cfg.refine_model = self.refine_combo.currentData()
         self._cfg.refine_enabled = self.refine_enabled.isChecked()
