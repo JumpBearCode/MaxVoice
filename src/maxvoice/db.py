@@ -71,6 +71,17 @@ def all_recordings(limit: int = 200) -> list[Recording]:
         )
 
 
+def recordings_since(since: datetime) -> list[Recording]:
+    with Session(engine()) as s:
+        return list(
+            s.exec(
+                select(Recording)
+                .where(Recording.created_at >= since)
+                .order_by(Recording.created_at.asc())
+            )
+        )
+
+
 def backfill_active_speech(params: VADParams, force: bool = False) -> int:
     """Fill active_speech_seconds for rows missing it (or all rows if force=True).
 

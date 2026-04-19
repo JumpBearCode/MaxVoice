@@ -7,6 +7,7 @@ from PyQt6.QtWidgets import QApplication, QMessageBox, QSystemTrayIcon
 from .app import App
 from .gui.dictionary import DictionaryDialog
 from .gui.history import HistoryDialog
+from .gui.metrics import MetricsDialog
 from .gui.settings import SettingsDialog
 from .gui.tray import Tray
 
@@ -63,8 +64,9 @@ def main() -> int:
     app.transcription_done.connect(on_done)
     app.error.connect(on_error)
 
-    # History window is cached so it can stay open; Settings is modal, one-shot.
+    # History / Metrics windows are cached so they can stay open; Settings is modal.
     history_win: dict = {"w": None}
+    metrics_win: dict = {"w": None}
 
     def open_settings() -> None:
         try:
@@ -86,6 +88,15 @@ def main() -> int:
         w.raise_()
         w.activateWindow()
 
+    def open_metrics() -> None:
+        if metrics_win["w"] is None:
+            metrics_win["w"] = MetricsDialog()
+        w = metrics_win["w"]
+        w.reload()
+        w.show()
+        w.raise_()
+        w.activateWindow()
+
     def open_dictionary() -> None:
         try:
             dlg = DictionaryDialog(app.cfg)
@@ -97,6 +108,7 @@ def main() -> int:
 
     tray.act_settings.triggered.connect(open_settings)
     tray.act_history.triggered.connect(open_history)
+    tray.act_metrics.triggered.connect(open_metrics)
     tray.act_dictionary.triggered.connect(open_dictionary)
     tray.act_quit.triggered.connect(qapp.quit)
 
