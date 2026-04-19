@@ -1,7 +1,8 @@
+import signal
 import sys
 import traceback
 
-from PyQt6.QtCore import QCoreApplication, Qt
+from PyQt6.QtCore import QCoreApplication, Qt, QTimer
 from PyQt6.QtWidgets import QApplication, QMessageBox, QSystemTrayIcon
 
 from .app import App
@@ -32,6 +33,14 @@ def main() -> int:
     QCoreApplication.setAttribute(Qt.ApplicationAttribute.AA_MacDontSwapCtrlAndMeta)
     qapp = QApplication(sys.argv)
     qapp.setQuitOnLastWindowClosed(False)
+
+    # Qt's C++ event loop blocks Python from checking signals, so Ctrl+C in the
+    # terminal gets swallowed. Route SIGINT to qapp.quit() and keep a no-op
+    # QTimer ticking so the interpreter wakes often enough to deliver the signal.
+    signal.signal(signal.SIGINT, lambda *_: qapp.quit())
+    sigint_timer = QTimer()
+    sigint_timer.start(200)
+    sigint_timer.timeout.connect(lambda: None)
 
     if not QSystemTrayIcon.isSystemTrayAvailable():
         QMessageBox.critical(
