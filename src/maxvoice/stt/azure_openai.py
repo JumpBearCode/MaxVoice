@@ -1,8 +1,9 @@
+from collections.abc import Sequence
 from pathlib import Path
 
 from openai import AzureOpenAI
 
-from ..config import AZURE
+from ..config import AZURE, DictionaryEntry
 from .base import STTProvider
 
 # Style-match prompt: models mimic the prompt's style rather than follow instructions.
@@ -25,14 +26,30 @@ def _client() -> AzureOpenAI:
     )
 
 
+def _build_prompt(dictionary: Sequence[DictionaryEntry]) -> str:
+    # User dictionary terms are appended as additional vocabulary biasing.
+    # The transcribe model treats `prompt` as a style/vocab hint — listing
+    # the preferred written forms makes it more likely to produce them when
+    # the audio is ambiguous, without forcing replacement.
+    terms = [e.written for e in dictionary if e.written]
+    if not terms:
+        return _PROMPT
+    return _PROMPT + " 用户词表（保留原写法）：" + "、".join(terms) + "。"
+
+
 class _AzureTranscribe(STTProvider):
     deployment_env: str = ""
     deployment_default: str = ""
 
-    def transcribe(self, audio_path: Path, language_hint: str = "") -> str:
+    def transcribe(
+        self,
+        audio_path: Path,
+        language_hint: str = "",
+        dictionary: Sequence[DictionaryEntry] = (),
+    ) -> str:
         client = _client()
         deployment = AZURE.deployment(self.deployment_env, self.deployment_default)
-        kwargs: dict = {"model": deployment, "prompt": _PROMPT}
+        kwargs: dict = {"model": deployment, "prompt": _build_prompt(dictionary)}
         if language_hint:
             kwargs["language"] = language_hint
         with audio_path.open("rb") as f:

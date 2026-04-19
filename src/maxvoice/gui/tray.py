@@ -13,6 +13,7 @@ class Tray(QSystemTrayIcon):
         self.menu.addSeparator()
         self.act_settings = self.menu.addAction("Settings…")
         self.act_history = self.menu.addAction("History…")
+        self.act_dictionary = self.menu.addAction("Dictionary…")
         self.menu.addSeparator()
         self.act_quit = self.menu.addAction("Quit")
         self.setContextMenu(self.menu)

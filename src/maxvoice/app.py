@@ -40,7 +40,9 @@ class TranscribeWorker(QThread):
                 active = self.duration
 
             stt = get_stt(self.cfg.stt_model)
-            raw = stt.transcribe(self.audio_path, self.cfg.language_hint)
+            raw = stt.transcribe(
+                self.audio_path, self.cfg.language_hint, self.cfg.dictionary
+            )
 
             refined = raw
             refine_name = ""
@@ -52,9 +54,9 @@ class TranscribeWorker(QThread):
             if needs_llm:
                 provider = get_refine(self.cfg.refine_model)
                 if self.mode == "translate":
-                    refined = provider.translate(raw)
+                    refined = provider.translate(raw, self.cfg.dictionary)
                 else:
-                    refined = provider.refine(raw)
+                    refined = provider.refine(raw, self.cfg.dictionary)
                 refine_name = provider.name
 
             saved = typing_speed.saved_seconds(

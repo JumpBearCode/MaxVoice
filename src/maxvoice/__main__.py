@@ -5,6 +5,7 @@ from PyQt6.QtCore import QCoreApplication, Qt
 from PyQt6.QtWidgets import QApplication, QMessageBox, QSystemTrayIcon
 
 from .app import App
+from .gui.dictionary import DictionaryDialog
 from .gui.history import HistoryDialog
 from .gui.settings import SettingsDialog
 from .gui.tray import Tray
@@ -85,8 +86,18 @@ def main() -> int:
         w.raise_()
         w.activateWindow()
 
+    def open_dictionary() -> None:
+        try:
+            dlg = DictionaryDialog(app.cfg)
+            if dlg.exec() == DictionaryDialog.DialogCode.Accepted:
+                app.apply_config(dlg.result_config())
+        except Exception as e:
+            traceback.print_exc()
+            QMessageBox.critical(None, "MaxVoice Dictionary", f"{type(e).__name__}: {e}")
+
     tray.act_settings.triggered.connect(open_settings)
     tray.act_history.triggered.connect(open_history)
+    tray.act_dictionary.triggered.connect(open_dictionary)
     tray.act_quit.triggered.connect(qapp.quit)
 
     app.start()

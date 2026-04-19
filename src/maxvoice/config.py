@@ -30,6 +30,18 @@ class VADConfig(BaseModel):
         )
 
 
+class DictionaryEntry(BaseModel):
+    """One user-defined spelling preference.
+
+    `written` is the canonical form the user wants to see in the output.
+    `spoken` is an optional misrecognition hint — what the STT tends to
+    produce instead. Both are passed to the refine LLM as soft hints; only
+    `written` is used as STT vocabulary biasing.
+    """
+    written: str
+    spoken: str = ""
+
+
 class AzureCreds(BaseModel):
     endpoint: str = Field(default_factory=lambda: os.getenv("AZURE_OPENAI_ENDPOINT", ""))
     api_key: str = Field(default_factory=lambda: os.getenv("AZURE_OPENAI_API_KEY", ""))
@@ -53,6 +65,7 @@ class UserConfig(BaseModel):
     max_audio_gb: float = 1.0
     auto_paste: bool = True
     language_hint: str = ""
+    dictionary: list[DictionaryEntry] = Field(default_factory=list)
 
     @classmethod
     def load(cls) -> "UserConfig":

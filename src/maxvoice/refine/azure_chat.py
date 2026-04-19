@@ -1,7 +1,14 @@
+from collections.abc import Sequence
+
 from openai import AzureOpenAI
 
-from ..config import AZURE
-from .base import SYSTEM_PROMPT, TRANSLATE_SYSTEM_PROMPT, RefineProvider
+from ..config import AZURE, DictionaryEntry
+from .base import (
+    SYSTEM_PROMPT,
+    TRANSLATE_SYSTEM_PROMPT,
+    RefineProvider,
+    build_dictionary_block,
+)
 
 
 def _client() -> AzureOpenAI:
@@ -33,22 +40,28 @@ class _AzureChatRefine(RefineProvider):
         )
         return (resp.choices[0].message.content or "").strip()
 
-    def refine(self, raw_text: str) -> str:
+    def refine(
+        self, raw_text: str, dictionary: Sequence[DictionaryEntry] = ()
+    ) -> str:
         stripped = raw_text.strip()
         # Short-input guard: small models hallucinate or truncate on tiny repetitive
         # inputs ("哈喽哈喽哈喽" 6 chars → +/- 哈喽). Skip refinement when the input
         # is short OR has very low character variety.
         if len(stripped) < 8 and len(set(stripped)) < 4:
             return stripped
-        return self._complete(SYSTEM_PROMPT, raw_text)
+        return self._complete(SYSTEM_PROMPT + build_dictionary_block(dictionary), raw_text)
 
-    def translate(self, raw_text: str) -> str:
+    def translate(
+        self, raw_text: str, dictionary: Sequence[DictionaryEntry] = ()
+    ) -> str:
         stripped = raw_text.strip()
         # Short-input guard also applies to translate — "哈喽" alone is too thin
         # to translate meaningfully and small models tend to hallucinate on it.
         if len(stripped) < 8 and len(set(stripped)) < 4:
             return stripped
-        return self._complete(TRANSLATE_SYSTEM_PROMPT, raw_text)
+        return self._complete(
+            TRANSLATE_SYSTEM_PROMPT + build_dictionary_block(dictionary), raw_text
+        )
 
 
 class GPT54Nano(_AzureChatRefine):

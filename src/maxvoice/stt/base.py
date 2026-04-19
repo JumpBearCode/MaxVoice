@@ -1,5 +1,8 @@
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 from pathlib import Path
+
+from ..config import DictionaryEntry
 
 
 class STTProvider(ABC):
@@ -9,5 +12,10 @@ class STTProvider(ABC):
     label: str = ""
 
     @abstractmethod
-    def transcribe(self, audio_path: Path, language_hint: str = "") -> str:
+    def transcribe(
+        self,
+        audio_path: Path,
+        language_hint: str = "",
+        dictionary: Sequence[DictionaryEntry] = (),
+    ) -> str:
         ...
