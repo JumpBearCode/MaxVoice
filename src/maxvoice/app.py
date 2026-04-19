@@ -96,7 +96,10 @@ class App(QObject):
         )
         self._worker: TranscribeWorker | None = None
         self._active_mode: str = "refine"  # set on each recording start
-        # pynput fires from a non-Qt thread — use a queued signal to marshal onto main.
+        # NSEvent monitors fire on the Qt main thread, so this queued signal
+        # is no longer strictly required for thread marshalling. Kept as a
+        # defensive boundary — if the listener backend ever changes again,
+        # callbacks still arrive via a Qt signal rather than reentrantly.
         self._toggle_bridge = _ToggleBridge()
         self._toggle_bridge.toggled.connect(self._on_toggle)
 
