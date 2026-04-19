@@ -85,5 +85,20 @@ def estimate_typing_seconds(text: str, speed: TypingSpeed) -> float:
     return total
 
 
-def saved_seconds(text: str, dictation_seconds: float, speed: TypingSpeed) -> float:
-    return max(estimate_typing_seconds(text, speed) - dictation_seconds, 0.0)
+def saved_seconds(
+    text: str,
+    active_speech_seconds: float,
+    speed: TypingSpeed,
+    min_active_seconds: float = 0.5,
+) -> float:
+    """Typing-time estimate minus actual speech time.
+
+    `active_speech_seconds` should be VAD-derived (time the user's mouth was
+    moving) rather than wall-clock — silence and thinking pauses aren't a
+    voice-tool cost. If VAD finds less than `min_active_seconds` of speech
+    we report 0 to avoid inflated savings from mostly-silent clips or STT
+    hallucinations.
+    """
+    if active_speech_seconds < min_active_seconds:
+        return 0.0
+    return max(estimate_typing_seconds(text, speed) - active_speech_seconds, 0.0)

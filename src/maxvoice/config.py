@@ -6,8 +6,28 @@ from pydantic import BaseModel, Field
 
 from .paths import config_path
 from .typing_speed import TypingSpeed
+from .vad import VADParams
 
 load_dotenv()
+
+
+class VADConfig(BaseModel):
+    """Tunable params for the time-saved metric's silence handling.
+
+    Defaults lean toward *under*-estimating saved time: a conservative
+    number is more defensible when shown to others than an optimistic one.
+    """
+    max_natural_pause_ms: int = 2500
+    min_active_speech_seconds: float = 0.5
+    speech_threshold: float = 0.5
+    min_speech_duration_ms: int = 250
+
+    def to_params(self) -> VADParams:
+        return VADParams(
+            max_natural_pause_ms=self.max_natural_pause_ms,
+            speech_threshold=self.speech_threshold,
+            min_speech_duration_ms=self.min_speech_duration_ms,
+        )
 
 
 class AzureCreds(BaseModel):
@@ -27,6 +47,9 @@ class UserConfig(BaseModel):
     refine_model: str = "gpt-5.4-nano"
     refine_enabled: bool = True
     typing_speed: TypingSpeed = Field(default_factory=TypingSpeed)
+    vad: VADConfig = Field(default_factory=VADConfig)
+    retention_days: int = 30
+    max_audio_gb: float = 1.0
     auto_paste: bool = True
     language_hint: str = ""
 

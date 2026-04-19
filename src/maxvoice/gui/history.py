@@ -12,7 +12,7 @@ from .. import db, pricing
 
 
 class HistoryDialog(QDialog):
-    COLS = ["Time", "Duration", "STT", "Refine", "Saved (s)", "Cost", "Text"]
+    COLS = ["Time", "Duration", "Active", "STT", "Refine", "Saved (s)", "Cost", "Text"]
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -53,9 +53,11 @@ class HistoryDialog(QDialog):
             cost = pricing.total_cost(
                 r.stt_model, r.refine_model, r.duration_seconds, r.raw_text, r.refined_text
             )
+            active = r.active_speech_seconds
             cells = [
                 r.created_at.strftime("%Y-%m-%d %H:%M:%S"),
                 f"{r.duration_seconds:.1f}s",
+                f"{active:.1f}s" if active is not None else "—",
                 r.stt_model,
                 r.refine_model or "—",
                 f"{r.saved_seconds:.1f}",

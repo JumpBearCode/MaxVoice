@@ -44,7 +44,12 @@ class Recorder:
             self._stream.start()
             self._running = True
 
-    def stop(self) -> tuple[Path, float]:
+    def stop(self) -> tuple[Path, float, np.ndarray]:
+        """Returns (wav_path, wall_clock_seconds, mono_int16_audio).
+
+        The audio array is handed back so downstream VAD can run on the
+        in-memory samples without re-reading the WAV from disk.
+        """
         with self._lock:
             if not self._running or self._stream is None:
                 raise RuntimeError("recorder is not running")
@@ -69,7 +74,8 @@ class Recorder:
             w.setsampwidth(2)
             w.setframerate(SAMPLE_RATE)
             w.writeframes(audio.astype(np.int16).tobytes())
-        return path, duration
+        mono = audio[:, 0] if audio.ndim > 1 else audio
+        return path, duration, mono.astype(np.int16)
 
     @property
     def is_running(self) -> bool:
